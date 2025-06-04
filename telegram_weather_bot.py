@@ -48,9 +48,18 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     app = Application.builder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.LOCATION, location_handler))
-    app.run_polling()
+
+    port = int(os.environ.get("PORT", 8443))
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=TOKEN,
+        webhook_url=f"https://telegram-weather-bot.onrender.com/{TOKEN}"
+    )
+
 
 if __name__ == "__main__":
     main()

@@ -2,10 +2,18 @@ services:
   - type: web
     name: telegram-weather-bot
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python telegram_weather_bot.py"
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        value: "8023696648:AAHxnkFsGdxgV2UIt2v_06ndu4RCAKqKkXQ"
+        value: "8023696648:AAHR865RCueev0rIrr48ptORTywTP5e3tiM"
+        sync: false
       - key: OPENWEATHER_API_KEY
+        sync: false
+        value: "a6115733a483924112f4edb9f3c83482"
+      - key: OWNER_ID
+        sync: false
+        value: "7749916934"
+      - key: OWM_API_KEY
+        sync: false
         value: "a6115733a483924112f4edb9f3c83482"
