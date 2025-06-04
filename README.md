@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Telegram Weather Bot 🌦
 
 Этот бот:
@@ -19,3 +20,7 @@
    ```
 
 Поддерживается хостинг Render.
+=======
+# telegram_weather_bot
+weather/location bot
+>>>>>>> 5e5b884f953d1770ade60c4d792badbd6b25f3ab
