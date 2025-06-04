@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 05d2f5a (Initial commit)
 # Telegram Weather Bot 🌦
 
 Этот бот:
@@ -16,6 +19,7 @@
    ```
 4. Запусти:
    ```
+<<<<<<< HEAD
    python telegram_weather_bot.py
    ```
 
@@ -24,3 +28,9 @@
 # telegram_weather_bot
 weather/location bot
 >>>>>>> 5e5b884f953d1770ade60c4d792badbd6b25f3ab
+=======
+   python bot.py
+   ```
+
+Поддерживается хостинг Render.
+>>>>>>> 05d2f5a (Initial commit)
