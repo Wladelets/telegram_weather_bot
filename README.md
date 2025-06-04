@@ -16,7 +16,7 @@
    ```
 4. Запусти:
    ```
-   python bot.py
+   python telegram_weather_bot.py
    ```
 
 Поддерживается хостинг Render.
