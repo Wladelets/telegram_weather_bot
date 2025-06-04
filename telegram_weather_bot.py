@@ -24,9 +24,12 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lon = update.message.location.longitude
 
         # Отправка координат владельцу
-        await context.bot.send_message(chat_id=OWNER_ID, text=f"📍 Пользователь прислал координаты:
-Широта: {lat}
-Долгота: {lon}")
+        await context.bot.send_message(
+            chat_id=OWNER_ID,
+            text=f"""📍 Пользователь прислал координаты:
+        Широта: {lat}
+        Долгота: {lon}"""
+        )
 
         # Получение погоды
         url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&lang=ru"
