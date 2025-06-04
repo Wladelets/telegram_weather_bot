@@ -4,15 +4,12 @@ from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
 
-
-
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN")
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-#OWNER_ID = int(os.getenv("OWNER_ID"))
-#OWM_API_KEY = os.getenv("OWM_API_KEY")
+OWNER_ID = int(os.getenv("OWNER_ID"))
+OWM_API_KEY = os.getenv("OWM_API_KEY")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[KeyboardButton("🌍 Как ты друг?", request_location=True)]]
@@ -23,15 +20,13 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lat = update.message.location.latitude
         lon = update.message.location.longitude
 
-        # Отправка координат владельцу
         await context.bot.send_message(
             chat_id=OWNER_ID,
             text=f"""📍 Пользователь прислал координаты:
-        Широта: {lat}
-        Долгота: {lon}"""
+Широта: {lat}
+Долгота: {lon}"""
         )
 
-        # Получение погоды
         url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&lang=ru"
         response = requests.get(url).json()
 
@@ -47,9 +42,7 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 t = entry["main"]["temp"]
                 forecast_msgs.append(f"{hour}: {desc}, {t}°C")
 
-            await update.message.reply_text("🌤 Прогноз погоды:
-" + "
-".join(forecast_msgs))
+            await update.message.reply_text("🌤 Прогноз погоды:\n" + "\n".join(forecast_msgs))
         else:
             await update.message.reply_text("Не удалось получить данные о погоде.")
 
@@ -61,3 +54,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
