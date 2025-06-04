@@ -4,11 +4,15 @@ from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
 
+
+
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID"))
-OWM_API_KEY = os.getenv("OWM_API_KEY")
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+#OWNER_ID = int(os.getenv("OWNER_ID"))
+#OWM_API_KEY = os.getenv("OWM_API_KEY")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[KeyboardButton("🌍 Как ты друг?", request_location=True)]]
