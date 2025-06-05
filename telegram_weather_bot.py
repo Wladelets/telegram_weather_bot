@@ -57,7 +57,7 @@ def main():
         listen="0.0.0.0",
         port=port,
         url_path=TOKEN,
-        webhook_url=f"https://telegram-weather-bot.onrender.com/{TOKEN}"
+        webhook_url=f"https://telegram-weather-bot-98fc.onrender.com/{TOKEN}"
     )
 
 
