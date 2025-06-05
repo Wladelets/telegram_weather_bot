@@ -1,142 +1,110 @@
-import logging
 import os
+import logging
 from datetime import datetime
 import pytz
 import requests
-from telegram import (
-    Update,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-)
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+from geopy.geocoders import Nominatim
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Конфиденциальные данные
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWM_KEY = os.getenv("OWM_KEY")
-GEOCODING_API_URL = "https://nominatim.openstreetmap.org/reverse"
+# 🔐 Загружаем конфиденциальные данные
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OWM_KEY = os.getenv("OWM_API_KEY")
 
-# Настройка логов
-logging.basicConfig(level=logging.INFO)
+
+# ===🛠 ЛОГГЕР===
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-# Команда /start
+# ===📍 /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[KeyboardButton("📍 Как ты, друг?", request_location=True)]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Привет! Поделись своим местоположением👇", reply_markup=reply_markup)
+    button = KeyboardButton(text="🌍 Как ты, друг? Дай связь!", request_location=True)
+    keyboard = ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=True)
+    await update.message.reply_text("Привет! Поделись своей локацией ⬇️", reply_markup=keyboard)
 
-
-# Обработка геолокации
+# ===📦 ОБРАБОТКА ЛОКАЦИИ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
-    user = message.from_user
-    latitude = message.location.latitude
-    longitude = message.location.longitude
+    user = update.effective_user
+    location = message.location
 
-    # Получение имени пользователя
-    user_name = user.username if user.username else f"ID:{user.id}"
+    lat = location.latitude
+    lon = location.longitude
 
-    # Получение адреса по координатам
-    address = await get_address(latitude, longitude)
+    # Имя или username пользователя
+    username = f"@{user.username}" if user.username else f"{user.full_name} (id:{user.id})"
 
-    # Временная зона
-    local_time = get_local_time(latitude, longitude)
+    # Получаем адрес
+    geolocator = Nominatim(user_agent="telegram-weather-bot")
+    address = "не удалось определить"
+    try:
+        location_info = geolocator.reverse((lat, lon), language="ru", timeout=10)
+        if location_info:
+            address = location_info.address
+    except Exception as e:
+        logger.warning(f"Geo error: {e}")
 
-    # Погода и прогноз
-    weather_info = await get_weather_forecast(latitude, longitude)
+    # Местное время
+    try:
+        tz = pytz.timezone("Europe/Chisinau")
+        local_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        local_time = "Не удалось определить"
 
-    # Ответ
-    response = (
-        f"@{user_name}, ✅ Получено:\n"
-        f"🌍 Широта: {latitude:.5f}\n"
-        f"🌍 Долгота: {longitude:.5f}\n\n"
+    base_message = (
+        f"{username}, [{datetime.now().strftime('%d.%m.%Y %H:%M')}]\n"
+        f"✅ Получено:\n"
+        f"🌍 Широта: {lat:.5f}\n"
+        f"🌍 Долгота: {lon:.5f}\n\n"
         f"📍 Местоположение: {address}\n\n"
-        f"🕒 Местное время: {local_time}\n\n"
-        f"{weather_info}"
+        f"🕒 Местное время: {local_time} (Europe/Chisinau)\n\n"
     )
 
-    await message.reply_text(response, reply_markup=ReplyKeyboardRemove())
-
-
-# Получение адреса через Nominatim
-async def get_address(lat, lon):
+    # Прогноз погоды
+    forecast_message = ""
     try:
-        response = requests.get(GEOCODING_API_URL, params={
-            "lat": lat,
-            "lon": lon,
-            "format": "json",
-            "accept-language": "ru"
-        }, timeout=10)
-        data = response.json()
-        return data.get("display_name", "Не удалось определить адрес")
+        url = (
+            f"https://api.openweathermap.org/data/2.5/forecast?"
+            f"lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&lang=ru"
+        )
+        res = requests.get(url)
+        data = res.json()
+
+        if "list" in data:
+            forecast = data["list"][:4]
+            forecast_message = "☁️ Прогноз погоды:\n"
+            for entry in forecast:
+                dt_txt = entry["dt_txt"]
+                temp = entry["main"]["temp"]
+                description = entry["weather"][0]["description"]
+                forecast_message += f"{dt_txt}: {temp}°C, {description}\n"
+        else:
+            forecast_message = "⚠️ Не удалось получить прогноз погоды."
     except Exception as e:
-        logger.error(f"Ошибка при получении адреса: {e}")
-        return "Не удалось определить адрес"
+        logger.error(f"Weather error: {e}")
+        forecast_message = "⚠️ Ошибка при получении погоды."
 
+    await message.reply_text(base_message + forecast_message)
 
-# Получение локального времени
-def get_local_time(lat, lon):
-    try:
-        timezone = "Europe/Chisinau"  # можно сделать динамическим при необходимости
-        tz = pytz.timezone(timezone)
-        return datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S (%Z)")
-    except Exception as e:
-        logger.error(f"Ошибка при определении времени: {e}")
-        return "Не удалось определить время"
-
-
-# Получение прогноза погоды
-async def get_weather_forecast(lat, lon):
-    try:
-        url = "https://api.openweathermap.org/data/2.5/forecast"
-        params = {
-            "lat": lat,
-            "lon": lon,
-            "appid": OWM_KEY,
-            "units": "metric",
-            "lang": "ru",
-            "cnt": 4  # прогноз на ближайшие 4 трёхчасовых интервала
-        }
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
-
-        if data.get("cod") != "200":
-            return "Не удалось получить данные о погоде."
-
-        forecast = "📊 Прогноз погоды (на 12 ч):\n"
-        for entry in data["list"]:
-            dt = entry["dt_txt"]
-            desc = entry["weather"][0]["description"].capitalize()
-            temp = entry["main"]["temp"]
-            wind = entry["wind"]["speed"]
-            forecast += f"🕒 {dt} — {desc}, 🌡 {temp}°C, 💨 {wind} м/с\n"
-
-        return forecast
-    except Exception as e:
-        logger.error(f"Ошибка при получении погоды: {e}")
-        return "Не удалось получить данные о погоде."
-
-
-# Основной запуск
-if __name__ == "__main__":
-    if not BOT_TOKEN or not OWM_KEY:
-        raise ValueError("Переменные окружения BOT_TOKEN и OWM_KEY не заданы!")
-
+# ===🚀 MAIN ===
+def main():
     app = Application.builder().token(BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
-    print("Бот запущен...")
-    app.run_polling()
+    logger.info("Bot started")
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000)),
+        webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{BOT_TOKEN}"
+    )
+
+if not BOT_TOKEN or not OWM_KEY:
+    raise ValueError("Переменные окружения TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
+
+if __name__ == "__main__":
+    main()
+
