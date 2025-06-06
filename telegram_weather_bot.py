@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 # ===📍 /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    button = KeyboardButton(text="🌍 Как ты, друг? Дай связь!", request_location=True)
+    button = KeyboardButton(text="🌍 Привет! Дай связь!", request_location=True)
     keyboard = ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text("Привет! Поделись своей локацией ⬇️", reply_markup=keyboard)
+    await update.message.reply_text("Как ты? Дай связь! ⬇️", reply_markup=keyboard)
 
 # ===📦 ОБРАБОТКА ЛОКАЦИИ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,8 +101,10 @@ def main():
     app.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 8000)),
-        webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{BOT_TOKEN}"
+        webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{BOT_TOKEN}",
+        path=BOT_TOKEN
     )
+
 
 if __name__ == "__main__":
     main()
