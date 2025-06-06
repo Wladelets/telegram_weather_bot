@@ -95,8 +95,7 @@ def main():
 
     port = int(os.environ.get("PORT", 10000))
     host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
-    path = f"/{BOT_TOKEN}"  # <-- путь, по которому будет слушать webhook
-    webhook_url = f"https://{host}{path}"
+    webhook_url = f"https://{host}/{BOT_TOKEN}"
 
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -108,11 +107,9 @@ def main():
     app.run_webhook(
         listen="0.0.0.0",
         port=port,
-        webhook_url=webhook_url,
-        allowed_updates=Update.ALL_TYPES,
-        # ⬇️ этот аргумент `path` снова нужен!
-        path=path
+        webhook_url=webhook_url
     )
+
 
 
 if __name__ == "__main__":
