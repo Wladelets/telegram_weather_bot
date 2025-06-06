@@ -95,10 +95,10 @@ def main():
 
     port = int(os.environ.get("PORT", 10000))
     host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
-    webhook_path = f"/{BOT_TOKEN}"
-    webhook_url = f"https://{host}{webhook_path}"
+    path = f"/{BOT_TOKEN}"  # <-- путь, по которому будет слушать webhook
+    webhook_url = f"https://{host}{path}"
 
-    app = Application.builder().token(BOT_TOKEN).webhook_path(webhook_path).build()
+    app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
@@ -109,6 +109,9 @@ def main():
         listen="0.0.0.0",
         port=port,
         webhook_url=webhook_url,
+        allowed_updates=Update.ALL_TYPES,
+        # ⬇️ этот аргумент `path` снова нужен!
+        path=path
     )
 
 
