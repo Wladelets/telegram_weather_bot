@@ -14,7 +14,6 @@ load_dotenv()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWM_KEY = os.getenv("OWM_API_KEY")
 
-
 # ===🛠 ЛОГГЕР===
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     button = KeyboardButton(text="🌍 Как ты, друг? Дай связь!", request_location=True)
     keyboard = ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text("Привет! Дай связь! ⬇️", reply_markup=keyboard)
+    await update.message.reply_text("Привет! Поделись своей локацией ⬇️", reply_markup=keyboard)
 
 # ===📦 ОБРАБОТКА ЛОКАЦИИ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,7 +67,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         url = (
             f"https://api.openweathermap.org/data/2.5/forecast?"
-            f"lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&lang=ru"
+            f"lat={lat}&lon={lon}&appid={OWM_KEY}&units=metric&lang=ru"
         )
         res = requests.get(url)
         data = res.json()
@@ -91,6 +90,9 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===🚀 MAIN ===
 def main():
+    if not BOT_TOKEN or not OWM_KEY:
+        raise ValueError("Переменные окружения TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
+
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
@@ -101,9 +103,6 @@ def main():
         port=int(os.environ.get("PORT", 8000)),
         webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{BOT_TOKEN}"
     )
-
-if not TELEGRAM_BOT_TOKEN or not OWM_API_KEY:
-    raise ValueError("Переменные окружения TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
 
 if __name__ == "__main__":
     main()
