@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     button = KeyboardButton(text="🌍 Как ты, друг? Дай связь!", request_location=True)
     keyboard = ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text("Привет! Поделись своей локацией ⬇️", reply_markup=keyboard)
+    await update.message.reply_text("Привет! Дай связь! ⬇️", reply_markup=keyboard)
 
 # ===📦 ОБРАБОТКА ЛОКАЦИИ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,7 +68,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         url = (
             f"https://api.openweathermap.org/data/2.5/forecast?"
-            f"lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&lang=ru"
+            f"lat={lat}&lon={lon}&appid={OWM_KEY}&units=metric&lang=ru"
         )
         res = requests.get(url)
         data = res.json()
