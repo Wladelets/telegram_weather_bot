@@ -68,7 +68,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         url = (
             f"https://api.openweathermap.org/data/2.5/forecast?"
-            f"lat={lat}&lon={lon}&appid={OWM_KEY}&units=metric&lang=ru"
+            f"lat={lat}&lon={lon}&appid={OWM_API_KEY}&units=metric&lang=ru"
         )
         res = requests.get(url)
         data = res.json()
@@ -102,7 +102,7 @@ def main():
         webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{BOT_TOKEN}"
     )
 
-if not BOT_TOKEN or not OWM_KEY:
+if not TELEGRAM_BOT_TOKEN or not OWM_API_KEY:
     raise ValueError("Переменные окружения TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
 
 if __name__ == "__main__":
