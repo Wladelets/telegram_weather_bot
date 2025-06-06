@@ -93,16 +93,22 @@ def main():
     if not BOT_TOKEN or not OWM_KEY:
         raise ValueError("Переменные окружения TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    port = int(os.environ.get("PORT", 10000))
+    host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+    webhook_path = f"/{BOT_TOKEN}"
+    webhook_url = f"https://{host}{webhook_path}"
+
+    app = Application.builder().token(BOT_TOKEN).webhook_path(webhook_path).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
     logger.info("Bot started")
+
     app.run_webhook(
         listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 8000)),
-        webhook_url=f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{BOT_TOKEN}",
-        path=BOT_TOKEN
+        port=port,
+        webhook_url=webhook_url,
     )
 
 
