@@ -1,45 +1,43 @@
 import os
 import logging
-from datetime import datetime
 import pytz
 import requests
+from datetime import datetime
 from geopy.geocoders import Nominatim
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram import ReplyKeyboardRemove
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from dotenv import load_dotenv
+from telegram import Update, ReplyKeyboardRemove
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
+# Загрузка .env переменных
 load_dotenv()
-
-# 🔐 Загружаем конфиденциальные данные
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWM_KEY = os.getenv("OWM_API_KEY")
 
-# ===🛠 ЛОГГЕР===
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+# Логгер
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ===📍 /start ===
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    button = KeyboardButton(text="🌍 Привет! Дай связь!", request_location=True)
-    keyboard = ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text("Как ты? Друг! ⬇️", reply_markup=keyboard)
 
 # ===📦 ОБРАБОТКА ЛОКАЦИИ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
-    # Удаляем клавиатуру после ответа
     await message.reply_text("Спасибо! 🛰", reply_markup=ReplyKeyboardRemove())
+
     user = update.effective_user
     location = message.location
 
     lat = location.latitude
     lon = location.longitude
 
-    # Имя или username пользователя
     username = f"@{user.username}" if user.username else f"{user.full_name} (id:{user.id})"
 
-    # Получаем адрес
+    # Получение адреса
     geolocator = Nominatim(user_agent="telegram-weather-bot")
     address = "не удалось определить"
     try:
@@ -88,31 +86,37 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Weather error: {e}")
         forecast_message = "⚠️ Ошибка при получении погоды."
+
     await message.reply_text(base_message + forecast_message)
 
-# ===🚀 MAIN ===
+
+# === /start ===
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Пришли свою геолокацию 📍")
+
+
+# === MAIN ===
 def main():
     if not BOT_TOKEN or not OWM_KEY:
-        raise ValueError("Переменные окружения TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
+        raise ValueError("Переменные TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
 
     port = int(os.environ.get("PORT", 10000))
     host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
     webhook_url = f"https://{host}/{BOT_TOKEN}"
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    application = Application.builder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
     logger.info("Bot started")
 
-    app.run_webhook(
+    application.run_webhook(
         listen="0.0.0.0",
         port=port,
-        webhook_url=webhook_url
+        webhook_url=webhook_url,
     )
 
 
 if __name__ == "__main__":
     main()
-
