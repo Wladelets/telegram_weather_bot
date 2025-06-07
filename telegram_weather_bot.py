@@ -5,6 +5,7 @@ import pytz
 import requests
 from geopy.geocoders import Nominatim
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram import ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from dotenv import load_dotenv
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     button = KeyboardButton(text="🌍 Привет! Дай связь!", request_location=True)
     keyboard = ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text("Как ты? Дай связь! ⬇️", reply_markup=keyboard)
+    await update.message.reply_text("Как ты? Друг! ⬇️", reply_markup=keyboard)
 
 # ===📦 ОБРАБОТКА ЛОКАЦИИ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -87,6 +88,8 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         forecast_message = "⚠️ Ошибка при получении погоды."
 
     await message.reply_text(base_message + forecast_message)
+# Удаляем клавиатуру после ответа
+await message.reply_text("Спасибо! 🛰", reply_markup=ReplyKeyboardRemove())
 
 # ===🚀 MAIN ===
 def main():
@@ -109,7 +112,6 @@ def main():
         port=port,
         webhook_url=webhook_url
     )
-
 
 
 if __name__ == "__main__":
