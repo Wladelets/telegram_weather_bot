@@ -28,6 +28,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===📦 ОБРАБОТКА ЛОКАЦИИ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
+    # Удаляем клавиатуру после ответа
+    await message.reply_text("Спасибо! 🛰", reply_markup=ReplyKeyboardRemove())
     user = update.effective_user
     location = message.location
 
@@ -86,10 +88,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Weather error: {e}")
         forecast_message = "⚠️ Ошибка при получении погоды."
-
     await message.reply_text(base_message + forecast_message)
-# Удаляем клавиатуру после ответа
-await message.reply_text("Спасибо! 🛰", reply_markup=ReplyKeyboardRemove())
 
 # ===🚀 MAIN ===
 def main():
