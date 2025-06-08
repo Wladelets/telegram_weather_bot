@@ -18,7 +18,7 @@ from telegram.ext import (
 load_dotenv()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWM_KEY = os.getenv("OWM_API_KEY")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+#ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 # Логгер
 logging.basicConfig(level=logging.INFO)
