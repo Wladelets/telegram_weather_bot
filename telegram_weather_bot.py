@@ -18,7 +18,7 @@ from telegram.ext import (
 load_dotenv()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWM_KEY = os.getenv("OWM_API_KEY")
-#ADMIN_ID = int(os.getenv("ADMIN_ID"))
+OWNER_ID = int(os.getenv("OWNER_ID"))
 
 # Логгер
 logging.basicConfig(level=logging.INFO)
@@ -104,7 +104,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === MAIN ===
 async def main():
-    if not BOT_TOKEN or not OWM_KEY or not ADMIN_ID:
+    if not BOT_TOKEN or not OWM_KEY or not OWNER_ID:
         raise ValueError("Не заданы переменные TELEGRAM_BOT_TOKEN, OWM_API_KEY или ADMIN_ID!")
 
     port = int(os.environ.get("PORT", 10000))
