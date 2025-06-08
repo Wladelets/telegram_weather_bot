@@ -96,7 +96,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # === MAIN ===
-def main():
+async def main():
     if not BOT_TOKEN or not OWM_KEY:
         raise ValueError("Переменные TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
 
@@ -111,12 +111,15 @@ def main():
 
     logger.info("Bot started")
 
-    application.run_webhook(
+    await application.run_webhook(
         listen="0.0.0.0",
         port=port,
         webhook_url=webhook_url,
+        webhook_path=f"/{BOT_TOKEN}",  # 💡 Обязательно! Должно совпадать с URL
     )
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
+
