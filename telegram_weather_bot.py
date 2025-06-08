@@ -122,9 +122,7 @@ async def main():
         listen="0.0.0.0",
         port=port,
         webhook_url=webhook_url,
-        webhook_path=f"/{BOT_TOKEN}",
     )
-
 
 if __name__ == "__main__":
     import asyncio
