@@ -14,17 +14,18 @@ from telegram.ext import (
     filters,
 )
 
-# Загрузка .env переменных
+# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWM_KEY = os.getenv("OWM_API_KEY")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 # Логгер
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# ===📦 ОБРАБОТКА ЛОКАЦИИ===
+# ===📦 Обработка локации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     await message.reply_text("Спасибо! 🛰", reply_markup=ReplyKeyboardRemove())
@@ -47,47 +48,53 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.warning(f"Geo error: {e}")
 
-    # Местное время
+    # Локальное время (Europe/Chisinau — можешь изменить при желании)
     try:
         tz = pytz.timezone("Europe/Chisinau")
         local_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
         local_time = "Не удалось определить"
 
-    base_message = (
-        f"{username}, [{datetime.now().strftime('%d.%m.%Y %H:%M')}]\n"
-        f"✅ Получено:\n"
-        f"🌍 Широта: {lat:.5f}\n"
-        f"🌍 Долгота: {lon:.5f}\n\n"
-        f"📍 Местоположение: {address}\n\n"
-        f"🕒 Местное время: {local_time} (Europe/Chisinau)\n\n"
+    # Сообщение пользователю
+    reply_msg = (
+        f"🌍 Координаты:\n"
+        f"Широта: {lat:.5f}\n"
+        f"Долгота: {lon:.5f}\n\n"
+        f"📍 Адрес: {address}\n"
+        f"🕒 Местное время: {local_time} (Europe/Chisinau)\n"
     )
 
     # Прогноз погоды
-    forecast_message = ""
+    forecast = ""
     try:
-        url = (
-            f"https://api.openweathermap.org/data/2.5/forecast?"
-            f"lat={lat}&lon={lon}&appid={OWM_KEY}&units=metric&lang=ru"
-        )
+        url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OWM_KEY}&units=metric&lang=ru"
         res = requests.get(url)
         data = res.json()
-
         if "list" in data:
-            forecast = data["list"][:4]
-            forecast_message = "☁️ Прогноз погоды:\n"
-            for entry in forecast:
-                dt_txt = entry["dt_txt"]
+            forecast += "\n☁️ Прогноз погоды:\n"
+            for entry in data["list"][:4]:
+                dt = entry["dt_txt"]
                 temp = entry["main"]["temp"]
-                description = entry["weather"][0]["description"]
-                forecast_message += f"{dt_txt}: {temp}°C, {description}\n"
+                desc = entry["weather"][0]["description"]
+                forecast += f"{dt}: {temp}°C, {desc}\n"
         else:
-            forecast_message = "⚠️ Не удалось получить прогноз погоды."
+            forecast += "⚠️ Не удалось получить погоду."
     except Exception as e:
         logger.error(f"Weather error: {e}")
-        forecast_message = "⚠️ Ошибка при получении погоды."
+        forecast += "⚠️ Ошибка при получении погоды."
 
-    await message.reply_text(base_message + forecast_message)
+    # Ответ пользователю
+    await message.reply_text(reply_msg + forecast)
+
+    # Отправка админу
+    full_msg = (
+        f"🧭 Получена локация от {username}\n"
+        f"📍 Адрес: {address}\n"
+        f"🌐 Координаты: {lat:.5f}, {lon:.5f}\n"
+        f"🕒 Время: {local_time}\n" +
+        forecast
+    )
+    await context.bot.send_message(chat_id=ADMIN_ID, text=full_msg)
 
 
 # === /start ===
@@ -97,8 +104,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === MAIN ===
 async def main():
-    if not BOT_TOKEN or not OWM_KEY:
-        raise ValueError("Переменные TELEGRAM_BOT_TOKEN и OWM_API_KEY не заданы!")
+    if not BOT_TOKEN or not OWM_KEY or not ADMIN_ID:
+        raise ValueError("Не заданы переменные TELEGRAM_BOT_TOKEN, OWM_API_KEY или ADMIN_ID!")
 
     port = int(os.environ.get("PORT", 10000))
     host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
@@ -115,11 +122,12 @@ async def main():
         listen="0.0.0.0",
         port=port,
         webhook_url=webhook_url,
-        webhook_path=f"/{BOT_TOKEN}",  # 💡 Обязательно! Должно совпадать с URL
+        webhook_path=f"/{BOT_TOKEN}",
     )
 
 
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
+
 
