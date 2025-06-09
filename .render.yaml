@@ -8,13 +8,21 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         value: "8023696648:AAHR865RCueev0rIrr48ptORTywTP5e3tiM"
         sync: false
+        key: BOT_TOKEN
+        value: "8023696648:AAHR865RCueev0rIrr48ptORTywTP5e3tiM"
+        sync: false
       - key: OWM_API_KEY
         sync: false
-        value: "a6115733a483924112f4edb9f3c83482"  
+        value: "a6115733a483924112f4edb9f3c83482" 
+        key: OWM_KEY
+        sync: false
+        value: "a6115733a483924112f4edb9f3c83482" 
       - key: OPENWEATHER_API_KEY
         sync: false
         value: "a6115733a483924112f4edb9f3c83482"
       - key: OWNER_ID
         sync: false
         value: "7749916934"
-      
+        key: ADMIN_ID
+        sync: false
+        value: "7749916934"
