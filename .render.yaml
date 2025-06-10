@@ -26,6 +26,4 @@ services:
         key: ADMIN_ID
         sync: false
         value: "7749916934"
-        key: WEBHOOK_URL
-        sync: false
-        value: https://telegram-weather-bot-98fc.onrender.com
+        
