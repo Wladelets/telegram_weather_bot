@@ -48,7 +48,7 @@ def get_weather(lat, lon):
 
 # === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Пришли мне смайлмк 📍")
+    await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
 
 
 # === Обработка геолокации ===
