@@ -1,139 +1,105 @@
 import os
 import logging
-import pytz
 import requests
-from datetime import datetime
-from geopy.geocoders import Nominatim
-from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, InputMediaPhoto
 from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
+    Application, CommandHandler, MessageHandler, filters, ContextTypes
 )
-import asyncio
+from geopy.geocoders import Nominatim
 
-# === Загрузка переменных окружения ===
-load_dotenv()
+# === Настройка ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+OWNER_ID = os.getenv("OWNER_ID")  # Телеграм ID владельца бота
+OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
 
-# === Логгирование ===
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
+# === Получить адрес по координатам ===
+def get_address(lat, lon):
+    geolocator = Nominatim(user_agent="telegram-weather-bot")
+    location = geolocator.reverse((lat, lon), language="ru")
+    return location.address if location else "Адрес не найден"
 
-# === Обработка ошибок ===
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    logger.error(msg="\u274c Ошибка при обработке обновления:", exc_info=context.error)
-    if isinstance(update, Update) and update.message:
-        await update.message.reply_text("\u26a0\ufe0f Произошла ошибка. Мы уже работаем над этим.")
+# === Получить погоду ===
+def get_weather(lat, lon):
+    url = (
+        f"https://api.openweathermap.org/data/2.5/weather?"
+        f"lat={lat}&lon={lon}&appid={OPENWEATHER_TOKEN}&units=metric&lang=ru"
+    )
+    r = requests.get(url)
+    data = r.json()
+
+    if r.status_code != 200:
+        return "Не удалось получить погоду."
+
+    desc = data["weather"][0]["description"].capitalize()
+    temp = data["main"]["temp"]
+    feels = data["main"]["feels_like"]
+    humidity = data["main"]["humidity"]
+    wind = data["wind"]["speed"]
+
+    return (
+        f"🌡 Температура: {temp}°C\n"
+        f"🤔 Ощущается как: {feels}°C\n"
+        f"💨 Ветер: {wind} м/с\n"
+        f"💧 Влажность: {humidity}%\n"
+        f"☁️ {desc}"
+    )
+
+# === Команда /start ===
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
 
 
 # === Обработка геолокации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message
-    await message.reply_text("\u0421пасибо! 🛠", reply_markup=ReplyKeyboardRemove())
+    user = update.message.from_user
+    location = update.message.location
+    lat, lon = location.latitude, location.longitude
 
-    user = update.effective_user
-    location = message.location
-    lat = location.latitude
-    lon = location.longitude
-    username = f"@{user.username}" if user.username else f"{user.full_name} (id:{user.id})"
+    address = get_address(lat, lon)
+    weather = get_weather(lat, lon)
 
-    # Определение адреса
-    address = "не удалось определить"
-    try:
-        geolocator = Nominatim(user_agent="telegram-weather-bot")
-        location_info = geolocator.reverse((lat, lon), language="ru", timeout=10)
-        if location_info:
-            address = location_info.address
-    except Exception as e:
-        logger.warning(f"Geo error: {e}")
+    map_url = f"https://static-maps.yandex.ru/1.x/?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
 
-    # Определение локального времени
-    try:
-        tz = pytz.timezone("Europe/Kiev")
-        local_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
-        local_time = "Не удалось определить"
-
-    # Прогноз погоды
-    forecast = ""
-    try:
-        url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric&lang=ru"
-        res = requests.get(url)
-        res.raise_for_status()
-        data = res.json()
-
-        if "list" in data:
-            forecast += "\n☁️ Прогноз погоды:\n"
-            for entry in data["list"][:4]:
-                dt = entry["dt_txt"]
-                temp = entry["main"]["temp"]
-                desc = entry["weather"][0]["description"]
-                forecast += f"{dt}: {temp}°C, {desc}\n"
-        else:
-            forecast += "\u26a0\ufe0f Не удалось получить погоду."
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error from OpenWeather: {e}")
-        forecast += "\u26a0\ufe0f Ошибка HTTP при получении погоды."
-    except ValueError as e:
-        logger.error(f"JSON parse error: {e}")
-        forecast += "\u26a0\ufe0f Ошибка подразборки JSON."
-    except Exception as e:
-        logger.error(f"Weather error: {e}")
-        forecast += "\u26a0\ufe0f Ошибка при погоде."
-
-    # Ответ пользователю
-    reply_msg = (
-        f"🌍 Координаты:\n"
-        f"Широта: {lat:.5f}\n"
-        f"Долгота: {lon:.5f}\n\n"
-        f"📍 Адрес: {address}\n"
-        f"🕒 Местное время: {local_time} (Europe/Kiev)\n"
-        f"{forecast}"
+    # Сообщение пользователю
+    msg = (
+        f"📍 Геолокация:\n"
+        f"Широта: {lat}\nДолгота: {lon}\n\n"
+        f"🏠 Адрес: {address}\n\n"
+        f"{weather}"
     )
-    await message.reply_text(reply_msg)
+    await update.message.reply_photo(photo=map_url, caption=msg)
 
-    # Уведомление админу
-    admin_msg = (
-        f"🧽 Локация от {username}\n"
-        f"📍 Адрес: {address}\n"
-        f"🌐 Координаты: {lat:.5f}, {lon:.5f}\n"
-        f"🕒 Время: {local_time}\n"
-        f"{forecast}"
-    )
-    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg)
-
-
-# === Команда /start ===
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Пришли свою геолокацию 📍")
+    # Сообщение владельцу
+    if OWNER_ID:
+        owner_text = (
+            f"👤 @{user.username or user.first_name} прислал геолокацию:\n"
+            f"🗺 {address}\n"
+            f"📍 lat={lat}, lon={lon}\n\n"
+            f"{weather}"
+        )
+        await context.bot.send_photo(chat_id=int(OWNER_ID), photo=map_url, caption=owner_text)
 
 
-# === Запуск бота с Webhook ===
-async def main():
-    application = Application.builder().token(BOT_TOKEN).build()
+# === Обработка ошибок ===
+async def error_handler(update, context):
+    logging.error(f"Ошибка: {context.error}")
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.LOCATION, handle_location))
-    application.add_error_handler(error_handler)
 
-    await application.initialize()
-    await application.start()
-    await application.bot.set_webhook(url=WEBHOOK_URL)
-    await application.updater.start_webhook()
-    await application.updater.wait_for_stop()
-    await application.stop()
-    await application.shutdown()
+# === Главная функция ===
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+    app.add_error_handler(error_handler)
+
+    app.run_polling()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
+
 
 
