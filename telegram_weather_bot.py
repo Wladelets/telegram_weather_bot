@@ -1,4 +1,5 @@
 import os
+import httpx
 import logging
 import requests
 from telegram import Update, InputMediaPhoto
@@ -50,7 +51,6 @@ def get_weather(lat, lon):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
 
-
 # === Обработка геолокации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
@@ -81,11 +81,9 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await context.bot.send_photo(chat_id=int(OWNER_ID), photo=map_url, caption=owner_text)
 
-
 # === Обработка ошибок ===
 async def error_handler(update, context):
     logging.error(f"Ошибка: {context.error}")
-
 
 # === Главная функция ===
 def main():
@@ -97,9 +95,9 @@ def main():
 
     app.run_polling()
 
-
 if __name__ == "__main__":
     main()
+
 
 
 
