@@ -14,6 +14,9 @@ services:
       - key: OWM_API_KEY
         sync: false
         value: "a6115733a483924112f4edb9f3c83482" 
+        key: OWM_API_KEY
+        sync: false
+        value: "a6115733a483924112f4edb9f3c83482"
         key: OWM_KEY
         sync: false
         value: "a6115733a483924112f4edb9f3c83482" 
