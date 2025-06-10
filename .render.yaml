@@ -11,6 +11,9 @@ services:
         key: BOT_TOKEN
         value: "8023696648:AAHR865RCueev0rIrr48ptORTywTP5e3tiM"
         sync: false
+        key: OPENWEATHERMAP_API_KEY
+        sync: false
+        value: "a6115733a483924112f4edb9f3c83482"
       - key: OPENWEATHER_API_KEY
         sync: false
         value: "a6115733a483924112f4edb9f3c83482" 
