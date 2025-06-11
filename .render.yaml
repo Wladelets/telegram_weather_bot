@@ -8,10 +8,10 @@ services:
     startCommand: "python telegram_weather_bot.py"
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        value: "8023696648:AAHR865RCueev0rIrr48ptORTywTP5e3tiM"
+        value: "8045976543:AAH6sNn08GPdehljiQYWwud_9pPDUFw2FMw"
         sync: false
         key: BOT_TOKEN
-        value: "8023696648:AAHR865RCueev0rIrr48ptORTywTP5e3tiM"
+        value: "8045976543:AAH6sNn08GPdehljiQYWwud_9pPDUFw2FMw"
         sync: false
         key: OPENWEATHERMAP_API_KEY
         sync: false
