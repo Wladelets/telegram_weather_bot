@@ -17,6 +17,9 @@ OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
 
+# === Создаём FastAPI-приложение сразу ===
+app = FastAPI()
+
 @app.post(WEBHOOK_PATH)
 async def receive_update(request: Request):
     update = Update.de_json(await request.json(), bot)
@@ -102,7 +105,7 @@ async def error_handler(update, context):
     logging.error(f"Произошла ошибка: {context.error}")
 
 # === Запуск через webhook ===
-app = FastAPI()
+
 bot_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
