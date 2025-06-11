@@ -1,12 +1,18 @@
 import os
 import logging
+import asyncio
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from httpx import AsyncClient
 from fastapi import FastAPI, Request
-from telegram.ext import ApplicationBuilder
 
 # === Загрузка переменных окружения ===
 load_dotenv()
@@ -19,13 +25,6 @@ WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
 
 # === FastAPI-приложение ===
 app = FastAPI()
-@app.post(WEBHOOK_PATH)
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    print("UPDATE INCOMING:", data)
-    await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
-    return {"ok": True}
-
 
 # === Инициализация логирования ===
 logging.basicConfig(level=logging.INFO)
@@ -69,16 +68,11 @@ async def get_weather(lat: float, lon: float) -> str:
         logging.error(f"Ошибка получения погоды: {e}")
         return "Ошибка получения погоды."
 
-# === Команда /start ===
-#async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
+# === Обработка /start ===
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
 
-@dp.message_handler(commands=["start"])
-async def handle_start(message: types.Message):
-    await message.reply("Привет! Отправь мне свою геолокацию 🌍")
-
-
-# === Обработка геолокации ===
+# === Обработка локации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.message.from_user
@@ -102,34 +96,28 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Произошла ошибка при обработке локации.")
 
 # === Обработка ошибок ===
-async def error_handler(update, context):
-    logging.error(f"Произошла ошибка: {context.error}")
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logging.error(f"Ошибка: {context.error}")
 
 # === Telegram-приложение ===
-bot_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
+bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_error_handler(error_handler)
 
-# === Установка webhook при запуске ===
-@app.on_event("startup")
-async def startup():
-    await bot_app.bot.set_webhook(url=WEBHOOK_URL)
-    logging.info("Webhook установлен.")
-
-# === Обработка входящих обновлений от Telegram ===
+# === Webhook-обработчик ===
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
-    await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
+    await bot_app.update_update(Update.de_json(data, bot_app.bot))
     return {"ok": True}
-async def process_updates():
-    while True:
-        update = await update_queue.get()
-        await dispatcher.process_update(update)
+
+# === Установка webhook при запуске ===
 @app.on_event("startup")
-async def on_startup():
-    asyncio.create_task(process_updates())
+async def startup():
+    await bot_app.bot.set_webhook(WEBHOOK_URL)
+    logging.info("Webhook установлен.")
+
 
 
 
