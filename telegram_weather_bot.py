@@ -14,7 +14,8 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
-WEBHOOK_URL = "https://telegram-weather-botq.onrender.com/"  # адрес твоего развернутого приложения
+WEBHOOK_URL = "https://telegram-weather-botq.onrender.com/" + BOT_TOKEN
+"  # адрес твоего развернутого приложения
 
 async def on_startup(app):
     await app.bot.set_webhook(WEBHOOK_URL)
