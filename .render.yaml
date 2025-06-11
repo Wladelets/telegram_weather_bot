@@ -3,6 +3,8 @@ services:
     name: telegram-weather-bot
     env: python
     buildCommand: "pip install -r requirements.txt"
+    start: uvicorn telegram_weather_bot:app --host 0.0.0.0 --port 10000
+
     startCommand: "python telegram_weather_bot.py"
     envVars:
       - key: TELEGRAM_BOT_TOKEN
