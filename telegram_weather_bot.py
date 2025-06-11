@@ -102,7 +102,8 @@ bot_app.add_error_handler(error_handler)
 # === Установка webhook при запуске ===
 @app.on_event("startup")
 async def startup():
-    await bot_app.bot.set_webhook(url=WEBHOOK_URL)
+    await bot_app.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
+
     logging.info("Webhook установлен.")
 
 # === Обработка входящих обновлений от Telegram ===
