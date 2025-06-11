@@ -1,6 +1,5 @@
 import os
 import logging
-import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from geopy.geocoders import Nominatim
@@ -14,29 +13,19 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
+
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
 
-# === Создаём FastAPI-приложение сразу ===
+# === FastAPI-приложение ===
 app = FastAPI()
 
-@app.post(WEBHOOK_PATH)
-async def receive_update(request: Request):
-    update = Update.de_json(await request.json(), bot)
-    await bot.process_new_updates([update])
-    return {"ok": True}
-
-async def on_startup(app):
-    await app.bot.set_webhook(WEBHOOK_URL)
-  # пример: https://your-project-name.onrender.com
-
-# === Настройка логирования ===
+# === Инициализация логирования ===
 logging.basicConfig(level=logging.INFO)
 
-# === Инициализация геокодера ===
+# === Геокодер ===
 geolocator = Nominatim(user_agent="telegram-weather-bot")
 
-# === Получение адреса ===
 def get_address(lat, lon):
     try:
         location = geolocator.reverse((lat, lon), language="ru")
@@ -104,24 +93,25 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update, context):
     logging.error(f"Произошла ошибка: {context.error}")
 
-# === Запуск через webhook ===
-
+# === Telegram-приложение ===
 bot_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_error_handler(error_handler)
 
+# === Установка webhook при запуске ===
 @app.on_event("startup")
 async def startup():
     await bot_app.bot.set_webhook(url=WEBHOOK_URL)
-
     logging.info("Webhook установлен.")
 
-@app.post("/webhook")
+# === Обработка входящих обновлений от Telegram ===
+@app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
     await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
     return {"ok": True}
+
 
 
 
