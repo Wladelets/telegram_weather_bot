@@ -2,62 +2,53 @@ import os
 import logging
 import requests
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, filters, ContextTypes
+)
 from geopy.geocoders import Nominatim
-from dotenv import load_dotenv
-from httpx import AsyncClient
-from fastapi import FastAPI, Request
-from telegram.ext import ApplicationBuilder
 
-# === Загрузка переменных окружения ===
-load_dotenv()
+# === Настройки из .env ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID", 0))
+OWNER_ID = os.getenv("OWNER_ID")
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # пример: https://your-project-name.onrender.com
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Пример: https://your-app.onrender.com
+PORT = int(os.getenv("PORT", "8443"))
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}" if WEBHOOK_HOST else None
 
-# === Настройка логирования ===
 logging.basicConfig(level=logging.INFO)
 
-# === Инициализация геокодера ===
-geolocator = Nominatim(user_agent="telegram-weather-bot")
-
-# === Получение адреса ===
+# === Получить адрес по координатам ===
 def get_address(lat, lon):
-    try:
-        location = geolocator.reverse((lat, lon), language="ru")
-        return location.address if location else "Адрес не найден"
-    except Exception as e:
-        logging.error(f"Ошибка при получении адреса: {e}")
-        return "Ошибка при определении адреса"
+    geolocator = Nominatim(user_agent="telegram-weather-bot")
+    location = geolocator.reverse((lat, lon), language="ru")
+    return location.address if location else "Адрес не найден"
 
-# === Получение погоды ===
-async def get_weather(lat: float, lon: float) -> str:
-    try:
-        async with AsyncClient() as client:
-            response = await client.get(
-                "https://api.openweathermap.org/data/2.5/weather",
-                params={
-                    "lat": lat,
-                    "lon": lon,
-                    "appid": OPENWEATHER_TOKEN,
-                    "units": "metric",
-                    "lang": "ru",
-                },
-            )
-            data = response.json()
-            if response.status_code != 200 or "main" not in data:
-                return "Не удалось получить погоду."
-            return (
-                f"🌤 {data['weather'][0]['description'].capitalize()}\n"
-                f"🌡 Температура: {data['main']['temp']}°C\n"
-                f"🤔 Ощущается как: {data['main']['feels_like']}°C\n"
-                f"💧 Влажность: {data['main']['humidity']}%\n"
-                f"💨 Ветер: {data['wind']['speed']} м/с"
-            )
-    except Exception as e:
-        logging.error(f"Ошибка получения погоды: {e}")
-        return "Ошибка получения погоды."
+# === Получить погоду ===
+def get_weather(lat, lon):
+    url = (
+        f"https://api.openweathermap.org/data/2.5/weather?"
+        f"lat={lat}&lon={lon}&appid={OPENWEATHER_TOKEN}&units=metric&lang=ru"
+    )
+    r = requests.get(url)
+    data = r.json()
+
+    if r.status_code != 200 or "main" not in data:
+        return "Не удалось получить данные о погоде 😞"
+
+    desc = data["weather"][0]["description"].capitalize()
+    temp = data["main"]["temp"]
+    feels = data["main"]["feels_like"]
+    humidity = data["main"]["humidity"]
+    wind = data["wind"]["speed"]
+
+    return (
+        f"🌡 Температура: {temp}°C\n"
+        f"🤔 Ощущается как: {feels}°C\n"
+        f"💨 Ветер: {wind} м/с\n"
+        f"💧 Влажность: {humidity}%\n"
+        f"☁️ {desc}"
+    )
 
 # === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,45 +56,54 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === Обработка геолокации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        user = update.message.from_user
-        location = update.message.location
-        lat, lon = location.latitude, location.longitude
+    user = update.message.from_user
+    location = update.message.location
+    lat, lon = location.latitude, location.longitude
 
-        address = get_address(lat, lon)
-        weather = await get_weather(lat, lon)
+    address = get_address(lat, lon)
+    weather = get_weather(lat, lon)
+    map_url = f"https://static-maps.yandex.ru/1.x/?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
 
-        map_url = f"https://static-maps.yandex.ru/1.x/?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
-        caption = f"📍 Широта: {lat}\nДолгота: {lon}\n🏠 Адрес: {address}\n\n{weather}"
+    msg = (
+        f"📍 Геолокация:\n"
+        f"Широта: {lat}\nДолгота: {lon}\n\n"
+        f"🏠 Адрес: {address}\n\n"
+        f"{weather}"
+    )
+    await update.message.reply_photo(photo=map_url, caption=msg)
 
-        await update.message.reply_photo(photo=map_url, caption=caption)
-
-        if OWNER_ID:
-            owner_msg = f"👤 @{user.username or user.first_name} отправил локацию:\n{caption}"
-            await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=owner_msg)
-
-    except Exception as e:
-        logging.error(f"Ошибка в handle_location: {e}")
-        await update.message.reply_text("Произошла ошибка при обработке локации.")
+    if OWNER_ID:
+        owner_msg = (
+            f"👤 @{user.username or user.first_name} прислал геолокацию:\n"
+            f"🗺 {address}\n"
+            f"📍 lat={lat}, lon={lon}\n\n"
+            f"{weather}"
+        )
+        await context.bot.send_photo(chat_id=int(OWNER_ID), photo=map_url, caption=owner_msg)
 
 # === Обработка ошибок ===
-async def error_handler(update, context):
-    logging.error(f"Произошла ошибка: {context.error}")
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logging.error(msg="Ошибка при обработке обновления", exc_info=context.error)
 
-# === Запуск через webhook ===
-app = FastAPI()
-bot_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
-bot_app.add_handler(CommandHandler("start", start))
-bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
-bot_app.add_error_handler(error_handler)
+# === Главная функция запуска ===
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
 
-@app.on_event("startup")
-async def startup():
-    await bot_app.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
-    logging.info("Webhook установлен.")
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+    app.add_error_handler(error_handler)
 
-@app.post("/webhook")
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
-    return {"ok": True}
+    if WEBHOOK_URL:
+        logging.info(f"Запуск через webhook на {WEBHOOK_URL}")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=WEBHOOK_URL,
+            allowed_updates=["message", "edited_message"]
+        )
+    else:
+        logging.info("Запуск через polling")
+        app.run_polling()
+
+if __name__ == "__main__":
+    main()
