@@ -109,8 +109,12 @@ bot_app.add_error_handler(error_handler)
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
-    await bot_app.update_update(Update.de_json(data, bot_app.bot))
+    print("UPDATE INCOMING:", data)
+    await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
     return {"ok": True}
+
+
+
 
 # === Установка webhook при запуске ===
 @app.on_event("startup")
