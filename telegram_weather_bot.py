@@ -14,7 +14,11 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # пример: https://your-project-name.onrender.com
+WEBHOOK_URL = "https://telegram-weather-botq.onrender.com/"  # адрес твоего развернутого приложения
+
+async def on_startup(app):
+    await app.bot.set_webhook(WEBHOOK_URL)
+  # пример: https://your-project-name.onrender.com
 
 # === Настройка логирования ===
 logging.basicConfig(level=logging.INFO)
