@@ -14,8 +14,14 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
-WEBHOOK_URL = "https://telegram-weather-botq.onrender.com/" + BOT_TOKEN
-"  # адрес твоего развернутого приложения
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
+
+@app.post(WEBHOOK_PATH)
+async def receive_update(request: Request):
+    update = Update.de_json(await request.json(), bot)
+    await bot.process_new_updates([update])
+    return {"ok": True}
 
 async def on_startup(app):
     await app.bot.set_webhook(WEBHOOK_URL)
