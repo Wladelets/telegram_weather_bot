@@ -70,9 +70,9 @@ async def get_weather(lat: float, lon: float) -> str:
         return "Ошибка получения погоды."
 
 # === Обработка /start ===
+ === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
-
 # === Обработка локации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
