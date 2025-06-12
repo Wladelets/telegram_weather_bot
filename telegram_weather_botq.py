@@ -1,6 +1,7 @@
 import os
-import logging
 import json
+import logging
+
 from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import (
@@ -8,35 +9,34 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ContextTypes,
-    filters
+    filters,
 )
 from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from httpx import AsyncClient
 
+# === Загрузка переменных окружения ===
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
 
-WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
-
-# ⬇️ Вот он, твой FastAPI app, должен быть на верхнем уровне
-app = FastAPI()
-
-# === Проверка обязательных переменных ===
 assert BOT_TOKEN, "❌ BOT_TOKEN не установлен в .env"
 assert OPENWEATHER_TOKEN, "❌ OPENWEATHER_TOKEN не установлен в .env"
 
-# === FastAPI-приложение ===
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
 
 # === Логирование ===
 logging.basicConfig(level=logging.INFO)
 
+# === FastAPI-приложение ===
+app = FastAPI()
+
 # === Геокодер ===
 geolocator = Nominatim(user_agent="telegram-weather-bot")
+
 
 def get_address(lat, lon):
     try:
@@ -46,7 +46,8 @@ def get_address(lat, lon):
         logging.error(f"Ошибка при получении адреса: {e}")
         return "Ошибка при определении адреса"
 
-# === Получение погоды ===
+
+# === Получение текущей погоды ===
 async def get_weather(lat: float, lon: float) -> str:
     try:
         async with AsyncClient() as client:
@@ -74,11 +75,12 @@ async def get_weather(lat: float, lon: float) -> str:
         logging.error(f"Ошибка получения погоды: {e}")
         return "Ошибка получения погоды."
 
-# === Обработка /start ===
+
+# === Обработчики Telegram ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
 
-# === Обработка локации ===
+
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.message.from_user
@@ -88,8 +90,16 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         address = get_address(lat, lon)
         weather = await get_weather(lat, lon)
 
-        map_url = f"https://static-maps.yandex.ru/1.x/?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
-        caption = f"📍 Широта: {lat}\nДолгота: {lon}\n🏠 Адрес: {address}\n\n{weather}"
+        map_url = (
+            f"https://static-maps.yandex.ru/1.x/"
+            f"?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
+        )
+
+        caption = (
+            f"📍 Широта: {lat}\n"
+            f"Долгота: {lon}\n"
+            f"🏠 Адрес: {address}\n\n{weather}"
+        )
 
         await update.message.reply_photo(photo=map_url, caption=caption)
 
@@ -101,13 +111,14 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Ошибка в handle_location: {e}")
         await update.message.reply_text("Произошла ошибка при обработке локации.")
 
-# === Обработка неизвестных команд ===
+
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Извини, я не знаю такую команду.")
 
-# === Обработка ошибок ===
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Ошибка: {context.error}")
+
 
 # === Telegram-приложение ===
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -116,7 +127,8 @@ bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_handler(MessageHandler(filters.COMMAND, unknown))
 bot_app.add_error_handler(error_handler)
 
-# === Webhook-обработчик ===
+
+# === Webhook FastAPI endpoint ===
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
@@ -124,9 +136,11 @@ async def telegram_webhook(req: Request):
     await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
     return {"ok": True}
 
-# === Установка webhook при запуске ===
+
+# === Установка webhook при запуске приложения ===
 @app.on_event("startup")
-async def startup():
+async def on_startup():
     await bot_app.bot.set_webhook(WEBHOOK_URL)
-    logging.info("✅ Webhook установлен: %s", WEBHOOK_URL)
+    logging.info(f"✅ Webhook установлен: {WEBHOOK_URL}")
+
 
