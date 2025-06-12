@@ -4,6 +4,7 @@ services:
     env: python
     buildCommand: "pip install -r requirements.txt"
     start: "python telegram_weather_bot.py"
+    start: uvicorn telegram_weather_bot:app --host 0.0.0.0 --port 10000
 
     RENDER_EXTERNAL_HOSTNAME=telegram-weather-bot-w869.onrender.com
     envVars:
@@ -40,5 +41,8 @@ services:
         key: RENDER_EXTERNAL_HOSTNAME
         sync: false
         key: telegram-weather-bot-w869.onrender.com
+        key: RENDER_EXTERNAL_HOSTNAME
+        sync: false
+        key: telegram-weather-botq.onrender.com
         
         
