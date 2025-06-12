@@ -1,9 +1,10 @@
-import os
+Вы сказали:
+а  у меня только 217 -------import os
 import json
 import logging
 
 from fastapi import FastAPI, Request
-from telegram import Update, Bot
+from telegram import Update, Bot, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -14,7 +15,6 @@ from telegram.ext import (
 from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from httpx import AsyncClient
-from telegram import ReplyKeyboardMarkup, KeyboardButton
 
 # === Загрузка переменных окружения ===
 load_dotenv()
@@ -30,9 +30,6 @@ bot = Bot(token=BOT_TOKEN)
 # === Константы ===
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
-
-# === Логирование ===
-# logging.basicConfig(level=logging.INFO)
 
 # === FastAPI-приложение ===
 app = FastAPI()
@@ -79,54 +76,41 @@ async def get_weather(lat: float, lon: float) -> str:
         return "Ошибка получения погоды."
 
 
-# === Обработчики Telegram ===
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Нажми кнопку ниже, чтобы отправить мне своё местоположение:")
-
-
-async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# === Получение прогноза погоды ===
+async def get_forecast(lat: float, lon: float) -> str:
     try:
-        user = update.message.from_user
-        location = update.message.location
-        lat, lon = location.latitude, location.longitude
-
-        address = get_address(lat, lon)
-        weather = await get_weather(lat, lon)
-
-        map_url = (
-            f"https://static-maps.yandex.ru/1.x/"
-            f"?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
-        )
-
-        caption = (
-            f"📍 Широта: {lat}\n"
-            f"Долгота: {lon}\n"
-            f"🏠 Адрес: {address}\n\n{weather}"
-        )
-
-        # Отправляем пользователю
-        await update.message.reply_photo(photo=map_url, caption=caption)
-
-        # Отправляем владельцу
-        if OWNER_ID:
-            owner_msg = (
-                f"👤 @{user.username or user.first_name} прислал локацию:\n"
-                f"{caption}"
+        async with AsyncClient() as client:
+            response = await client.get(
+                "https://api.openweathermap.org/data/2.5/forecast",
+                params={
+                    "lat": lat,
+                    "lon": lon,
+                    "appid": OPENWEATHER_TOKEN,
+                    "units": "metric",
+                    "lang": "ru",
+                },
             )
-            await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=owner_msg)
+            data = response.json()
+            if response.status_code != 200 or "list" not in data:
+                return "Не удалось получить прогноз."
+
+            forecast_lines = ["📅 Прогноз погоды (ближайшие часы):"]
+            for item in data["list"][:4]:  # 4 записи ≈ 12 часов
+                time = item["dt_txt"]
+                temp = item["main"]["temp"]
+                feels = item["main"]["feels_like"]
+                desc = item["weather"][0]["description"].capitalize()
+                wind = item["wind"]["speed"]
+                forecast_lines.append(f"🕓 {time} — {desc}, 🌡 {temp}°C, 💨 {wind} м/с")
+
+            return "\n".join(forecast_lines)
 
     except Exception as e:
-        logging.error(f"Ошибка в handle_location: {e}")
-        await update.message.reply_text("Произошла ошибка при обработке локации.")
+        logging.error(f"Ошибка получения прогноза: {e}")
+        return "Ошибка получения прогноза."
 
 
-async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Извини, я не знаю такую команду.")
-
-
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    logging.error(f"Ошибка: {context.error}")
-
+# === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     keyboard = [[KeyboardButton(text="📍 Отправить геолокацию", request_location=True)]]
@@ -144,11 +128,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+# === Обработка геолокации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.message.from_user
         location = update.message.location
         lat, lon = location.latitude, location.longitude
+
+        # Сохраняем локацию пользователя
+        context.user_data["last_location"] = (lat, lon)
 
         address = get_address(lat, lon)
         weather = await get_weather(lat, lon)
@@ -164,10 +152,8 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏠 Адрес: {address}\n\n{weather}"
         )
 
-        # Отправляем пользователю
         await update.message.reply_photo(photo=map_url, caption=caption)
 
-        # Отправляем владельцу
         if OWNER_ID:
             owner_msg = (
                 f"👤 @{user.username or user.first_name} отправил локацию:\n{caption}"
@@ -179,9 +165,36 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Произошла ошибка при обработке локации.")
 
 
+# === Команда /forecast ===
+async def forecast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_data = context.user_data.get("last_location")
+        if not user_data:
+            await update.message.reply_text("Сначала отправьте своё местоположение с помощью кнопки /start.")
+            return
+
+        lat, lon = user_data
+        forecast_text = await get_forecast(lat, lon)
+        await update.message.reply_text(forecast_text)
+    except Exception as e:
+        logging.error(f"Ошибка в forecast: {e}")
+        await update.message.reply_text("Произошла ошибка при получении прогноза.")
+
+
+# === Обработка неизвестных команд ===
+async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Извини, я не знаю такую команду.")
+
+
+# === Обработка ошибок ===
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logging.error(f"Ошибка: {context.error}")
+
+
 # === Telegram-приложение ===
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
+bot_app.add_handler(CommandHandler("forecast", forecast))  # 👈 добавлено
 bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_handler(MessageHandler(filters.COMMAND, unknown))
 bot_app.add_error_handler(error_handler)
@@ -191,12 +204,11 @@ bot_app.add_error_handler(error_handler)
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
-    # logging.info("UPDATE INCOMING:\n%s", json.dumps(data, indent=2, ensure_ascii=False))
     await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
     return {"ok": True}
 
 
-# === Установка webhook при запуске приложения ===
+# === Установка webhook при запуске ===
 @app.on_event("startup")
 async def on_startup():
     try:
@@ -204,6 +216,4 @@ async def on_startup():
         print(f"✅ Webhook установлен: {WEBHOOK_URL}")
     except Exception as e:
         print(f"❌ Не удалось установить webhook: {e}")
-
-
 
