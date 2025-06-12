@@ -32,7 +32,7 @@ WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
 
 # === Логирование ===
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
 # === FastAPI-приложение ===
 app = FastAPI()
@@ -191,7 +191,7 @@ bot_app.add_error_handler(error_handler)
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
-    logging.info("UPDATE INCOMING:\n%s", json.dumps(data, indent=2, ensure_ascii=False))
+    # logging.info("UPDATE INCOMING:\n%s", json.dumps(data, indent=2, ensure_ascii=False))
     await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
     return {"ok": True}
 
@@ -199,6 +199,10 @@ async def telegram_webhook(req: Request):
 # === Установка webhook при запуске приложения ===
 @app.on_event("startup")
 async def on_startup():
-    await bot_app.bot.set_webhook(WEBHOOK_URL)
-    logging.info(f"✅ Webhook установлен: {WEBHOOK_URL}")
+    try:
+        await bot_app.bot.set_webhook(WEBHOOK_URL)
+        print(f"✅ Webhook установлен: {WEBHOOK_URL}")
+    except Exception as e:
+        print(f"❌ Не удалось установить webhook: {e}")
+
 
