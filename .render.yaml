@@ -3,10 +3,10 @@ services:
     name: telegram-weather-bot
     env: python
     buildCommand: "pip install -r requirements.txt"
-    start: "python telegram_weather_bot.py"
+    # start: "python telegram_weather_bot.py"
     start: uvicorn telegram_weather_botq:app --host 0.0.0.0 --port 10000
 
-    RENDER_EXTERNAL_HOSTNAME=telegram-weather-bot-w869.onrender.com
+    # RENDER_EXTERNAL_HOSTNAME=telegram-weather-bot-w869.onrender.com
     RENDER_EXTERNAL_HOSTNAME=telegram-weather-botq.onrender.com
     envVars:
       - key: TELEGRAM_BOT_TOKEN
@@ -39,9 +39,9 @@ services:
         key: ADMIN_ID
         sync: false
         value: "7749916934"
-        key: RENDER_EXTERNAL_HOSTNAME
-        sync: false
-        key: telegram-weather-bot-w869.onrender.com
+        # key: RENDER_EXTERNAL_HOSTNAME
+        # sync: false
+        # key: telegram-weather-bot-w869.onrender.com
         key: RENDER_EXTERNAL_HOSTNAME
         sync: false
         key: telegram-weather-botq.onrender.com
