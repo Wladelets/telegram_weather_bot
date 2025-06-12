@@ -1,7 +1,6 @@
 import os
 import logging
 import json
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import (
@@ -11,24 +10,27 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
-from httpx import AsyncClient
 from geopy.geocoders import Nominatim
+from dotenv import load_dotenv
+from httpx import AsyncClient
 
-# === Загрузка переменных окружения ===
 load_dotenv()
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
+
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
+
+# ⬇️ Вот он, твой FastAPI app, должен быть на верхнем уровне
+app = FastAPI()
 
 # === Проверка обязательных переменных ===
 assert BOT_TOKEN, "❌ BOT_TOKEN не установлен в .env"
 assert OPENWEATHER_TOKEN, "❌ OPENWEATHER_TOKEN не установлен в .env"
 
-WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
-
 # === FastAPI-приложение ===
-app = FastAPI()
 
 # === Логирование ===
 logging.basicConfig(level=logging.INFO)
