@@ -91,23 +91,25 @@ async def get_forecast(lat: float, lon: float) -> str:
             )
             data = response.json()
             if response.status_code != 200 or "list" not in data:
-                return "Не удалось получить прогноз погоды."
+                return "Не удалось получить прогноз."
 
-            forecasts = data["list"][:4]  # ближайшие 4 записи (примерно 12 часов)
-            result = "📅 Прогноз на ближайшие часы:\n"
-            for f in forecasts:
-                time = f["dt_txt"][11:16]
-                desc = f["weather"][0]["description"].capitalize()
-                temp = f["main"]["temp"]
-                wind = f["wind"]["speed"]
-                result += f"🕒 {time}: {desc}, 🌡 {temp}°C, 💨 {wind} м/с\n"
-            return result
+            forecast_lines = ["📅 Прогноз погоды (ближайшие часы):"]
+            for item in data["list"][:4]:  # 4 записи ≈ 12 часов
+                time = item["dt_txt"]
+                temp = item["main"]["temp"]
+                feels = item["main"]["feels_like"]
+                desc = item["weather"][0]["description"].capitalize()
+                wind = item["wind"]["speed"]
+                forecast_lines.append(f"🕓 {time} — {desc}, 🌡 {temp}°C, 💨 {wind} м/с")
+
+            return "\n".join(forecast_lines)
+
     except Exception as e:
         logging.error(f"Ошибка получения прогноза: {e}")
-        return "Ошибка получения прогноза погоды."
+        return "Ошибка получения прогноза."
 
 
-# === Обработчики Telegram ===
+# === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     keyboard = [[KeyboardButton(text="📍 Отправить геолокацию", request_location=True)]]
@@ -125,13 +127,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+# === Обработка геолокации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.message.from_user
         location = update.message.location
         lat, lon = location.latitude, location.longitude
 
-        context.user_data["last_location"] = (lat, lon)  # Сохраняем координаты
+        # Сохраняем локацию пользователя
+        context.user_data["last_location"] = (lat, lon)
 
         address = get_address(lat, lon)
         weather = await get_weather(lat, lon)
@@ -160,26 +164,28 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Произошла ошибка при обработке локации.")
 
 
+# === Команда /forecast ===
 async def forecast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_data = context.user_data.get("last_location")
         if not user_data:
-            await update.message.reply_text("Сначала отправьте своё местоположение через /start.")
+            await update.message.reply_text("Сначала отправьте своё местоположение с помощью кнопки /start.")
             return
 
         lat, lon = user_data
         forecast_text = await get_forecast(lat, lon)
         await update.message.reply_text(forecast_text)
-
     except Exception as e:
         logging.error(f"Ошибка в forecast: {e}")
         await update.message.reply_text("Произошла ошибка при получении прогноза.")
 
 
+# === Обработка неизвестных команд ===
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Извини, я не знаю такую команду.")
 
 
+# === Обработка ошибок ===
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Ошибка: {context.error}")
 
@@ -187,7 +193,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 # === Telegram-приложение ===
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
-bot_app.add_handler(CommandHandler("forecast", forecast))  # ← добавили forecast
+bot_app.add_handler(CommandHandler("forecast", forecast))  # 👈 добавлено
 bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_handler(MessageHandler(filters.COMMAND, unknown))
 bot_app.add_error_handler(error_handler)
@@ -201,7 +207,7 @@ async def telegram_webhook(req: Request):
     return {"ok": True}
 
 
-# === Установка webhook при запуске приложения ===
+# === Установка webhook при запуске ===
 @app.on_event("startup")
 async def on_startup():
     try:
@@ -209,6 +215,5 @@ async def on_startup():
         print(f"✅ Webhook установлен: {WEBHOOK_URL}")
     except Exception as e:
         print(f"❌ Не удалось установить webhook: {e}")
-
 
 
