@@ -3,7 +3,7 @@ import json
 import logging
 
 from fastapi import FastAPI, Request
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -17,7 +17,6 @@ from httpx import AsyncClient
 
 # === Загрузка переменных окружения ===
 load_dotenv()
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
@@ -25,6 +24,9 @@ OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
 assert BOT_TOKEN, "❌ BOT_TOKEN не установлен в .env"
 assert OPENWEATHER_TOKEN, "❌ OPENWEATHER_TOKEN не установлен в .env"
 
+bot = Bot(token=BOT_TOKEN)
+
+# === Константы ===
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"https://telegram-weather-botq.onrender.com{WEBHOOK_PATH}"
 
@@ -78,7 +80,7 @@ async def get_weather(lat: float, lon: float) -> str:
 
 # === Обработчики Telegram ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
+    await update.message.reply_text("Привет! Нажми кнопку ниже, чтобы отправить мне своё местоположение:")
 
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,10 +103,15 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏠 Адрес: {address}\n\n{weather}"
         )
 
+        # Отправляем пользователю
         await update.message.reply_photo(photo=map_url, caption=caption)
 
+        # Отправляем владельцу
         if OWNER_ID:
-            owner_msg = f"👤 @{user.username or user.first_name} отправил локацию:\n{caption}"
+            owner_msg = (
+                f"👤 @{user.username or user.first_name} прислал локацию:\n"
+                f"{caption}"
+            )
             await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=owner_msg)
 
     except Exception as e:
@@ -142,5 +149,4 @@ async def telegram_webhook(req: Request):
 async def on_startup():
     await bot_app.bot.set_webhook(WEBHOOK_URL)
     logging.info(f"✅ Webhook установлен: {WEBHOOK_URL}")
-
 
