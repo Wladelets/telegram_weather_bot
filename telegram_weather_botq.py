@@ -14,6 +14,7 @@ from telegram.ext import (
 from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from httpx import AsyncClient
+from telegram import ReplyKeyboardMarkup, KeyboardButton
 
 # === Загрузка переменных окружения ===
 load_dotenv()
@@ -125,6 +126,57 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Ошибка: {context.error}")
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
+    keyboard = [[KeyboardButton(text="📍 Отправить геолокацию", request_location=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+
+    await update.message.reply_text(
+        "Привет! Нажми кнопку ниже, чтобы отправить мне своё местоположение:",
+        reply_markup=reply_markup
+    )
+
+    if OWNER_ID:
+        await context.bot.send_message(
+            chat_id=OWNER_ID,
+            text=f"👤 Пользователь @{user.username or user.first_name} нажал /start"
+        )
+
+
+async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user = update.message.from_user
+        location = update.message.location
+        lat, lon = location.latitude, location.longitude
+
+        address = get_address(lat, lon)
+        weather = await get_weather(lat, lon)
+
+        map_url = (
+            f"https://static-maps.yandex.ru/1.x/"
+            f"?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
+        )
+
+        caption = (
+            f"📍 Широта: {lat}\n"
+            f"Долгота: {lon}\n"
+            f"🏠 Адрес: {address}\n\n{weather}"
+        )
+
+        # Отправляем пользователю
+        await update.message.reply_photo(photo=map_url, caption=caption)
+
+        # Отправляем владельцу
+        if OWNER_ID:
+            owner_msg = (
+                f"👤 @{user.username or user.first_name} отправил локацию:\n{caption}"
+            )
+            await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=owner_msg)
+
+    except Exception as e:
+        logging.error(f"Ошибка в handle_location: {e}")
+        await update.message.reply_text("Произошла ошибка при обработке локации.")
 
 
 # === Telegram-приложение ===
