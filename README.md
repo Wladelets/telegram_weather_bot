@@ -16,11 +16,13 @@
    ```
 4. Запусти:
    ```
-   python telegram_weather_bot.py
+   python telegram_weather_botq.py
    ```
+   python telegram_weather_bot.py
 
 Поддерживается хостинг Render.
 =======
 # telegram_weather_bot
 weather_weather_bot
+weather_weather_botq
 
