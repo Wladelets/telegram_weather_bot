@@ -218,6 +218,7 @@ async def telegram_webhook(req: Request):
 @app.on_event("startup")
 async def on_startup():
     try:
+        await bot_app.initialize()  # ✅ Обязательно при использовании webhook
         await bot_app.bot.set_webhook(WEBHOOK_URL)
         print(f"✅ Webhook установлен: {WEBHOOK_URL}")
     except Exception as e:
