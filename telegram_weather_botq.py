@@ -1,5 +1,3 @@
-Вы сказали:
-а  у меня только 217 -------import os
 import json
 import logging
 
@@ -15,6 +13,8 @@ from telegram.ext import (
 from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from httpx import AsyncClient
+user_locations = {}
+
 
 # === Загрузка переменных окружения ===
 load_dotenv()
