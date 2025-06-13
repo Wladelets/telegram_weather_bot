@@ -102,10 +102,10 @@ def main():
             allowed_updates=["message", "edited_message"]
         )
     else:
-        logging.info("Запуск через polling")
-        app.run_polling()
+        # logging.info("Запуск через polling")
+        # app.run_polling()
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     main()
 
 
