@@ -135,8 +135,11 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         location = update.message.location
         lat, lon = location.latitude, location.longitude
 
+        # Сохраняем локацию пользователя в глобальный словарь
+        user_locations[user.id] = (lat, lon)
+
         # Сохраняем локацию пользователя
-        context.user_data["last_location"] = (lat, lon)
+        # context.user_data["last_location"] = (lat, lon)
 
         address = get_address(lat, lon)
         weather = await get_weather(lat, lon)
@@ -168,7 +171,10 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # === Команда /forecast ===
 async def forecast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        user_data = context.user_data.get("last_location")
+        user_id = update.message.from_user.id
+        user_data = user_locations.get(user_id)
+        
+        # user_data = context.user_data.get("last_location")
         if not user_data:
             await update.message.reply_text("Сначала отправьте своё местоположение с помощью кнопки /start.")
             return
