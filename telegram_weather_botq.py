@@ -13,8 +13,9 @@ from telegram.ext import (
 from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from httpx import AsyncClient
-user_locations = {}
+from typing import Dict, Any
 
+user_locations = {}
 
 # === Загрузка переменных окружения ===
 load_dotenv()
@@ -37,7 +38,6 @@ app = FastAPI()
 # === Геокодер ===
 geolocator = Nominatim(user_agent="telegram-weather-bot")
 
-
 def get_address(lat, lon):
     try:
         location = geolocator.reverse((lat, lon), language="ru")
@@ -45,7 +45,6 @@ def get_address(lat, lon):
     except Exception as e:
         logging.error(f"Ошибка при получении адреса: {e}")
         return "Ошибка при определении адреса"
-
 
 # === Получение текущей погоды ===
 async def get_weather(lat: float, lon: float) -> str:
@@ -75,7 +74,6 @@ async def get_weather(lat: float, lon: float) -> str:
         logging.error(f"Ошибка получения погоды: {e}")
         return "Ошибка получения погоды."
 
-
 # === Получение прогноза погоды ===
 async def get_forecast(lat: float, lon: float) -> str:
     try:
@@ -95,30 +93,19 @@ async def get_forecast(lat: float, lon: float) -> str:
                 return "Не удалось получить прогноз."
 
             forecast_lines = ["📅 Прогноз погоды (ближайшие часы):"]
-            for item in data["list"][:4]:  # 4 записи ≈ 12 часов
+            for item in data["list"][:4]:
                 time = item["dt_txt"]
                 temp = item["main"]["temp"]
-                feels = item["main"]["feels_like"]
                 desc = item["weather"][0]["description"].capitalize()
                 wind = item["wind"]["speed"]
                 forecast_lines.append(f"🕓 {time} — {desc}, 🌡 {temp}°C, 💨 {wind} м/с")
 
             return "\n".join(forecast_lines)
-
     except Exception as e:
         logging.error(f"Ошибка получения прогноза: {e}")
         return "Ошибка получения прогноза."
 
-
 # === Обработчики Telegram ===
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message is None:
-        return
-    await update.message.reply_text("Привет! Отправь свою локацию 🌍.")
-
-
-
-# === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     keyboard = [[KeyboardButton(text="📍 Отправить геолокацию", request_location=True)]]
@@ -135,19 +122,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f"👤 Пользователь @{user.username or user.first_name} нажал /start"
         )
 
-
-# === Обработка геолокации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.message.from_user
         location = update.message.location
         lat, lon = location.latitude, location.longitude
-
-        # Сохраняем локацию пользователя в глобальный словарь
         user_locations[user.id] = (lat, lon)
-
-        # Сохраняем локацию пользователя
-        # context.user_data["last_location"] = (lat, lon)
 
         address = get_address(lat, lon)
         weather = await get_weather(lat, lon)
@@ -166,23 +146,16 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_photo(photo=map_url, caption=caption)
 
         if OWNER_ID:
-            owner_msg = (
-                f"👤 @{user.username or user.first_name} отправил локацию:\n{caption}"
-            )
-            await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=owner_msg)
+            await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=caption)
 
     except Exception as e:
         logging.error(f"Ошибка в handle_location: {e}")
         await update.message.reply_text("Произошла ошибка при обработке локации.")
 
-
-# === Команда /forecast ===
 async def forecast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.message.from_user.id
         user_data = user_locations.get(user_id)
-        
-        # user_data = context.user_data.get("last_location")
         if not user_data:
             await update.message.reply_text("Сначала отправьте своё местоположение с помощью кнопки /start.")
             return
@@ -194,45 +167,39 @@ async def forecast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Ошибка в forecast: {e}")
         await update.message.reply_text("Произошла ошибка при получении прогноза.")
 
-
-# === Обработка неизвестных команд ===
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Извини, я не знаю такую команду.")
 
-
-# === Обработка ошибок ===
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Ошибка: {context.error}")
-
 
 # === Telegram-приложение ===
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
-bot_app.add_handler(CommandHandler("forecast", forecast))  # 👈 добавлено
+bot_app.add_handler(CommandHandler("forecast", forecast))
 bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_handler(MessageHandler(filters.COMMAND, unknown))
 bot_app.add_error_handler(error_handler)
 
-# === Webhook FastAPI endpoint ===
-@app.post(f"/webhook/{BOT_TOKEN}")
+@app.get("/")
+async def root():
+    return {"status": "OK", "message": "Бот работает через webhook."}
+
+@app.post(WEBHOOK_PATH)
 async def webhook_handler(update: Dict[str, Any]):
     telegram_update = Update.de_json(update, bot_app.bot)
     await bot_app.process_update(telegram_update)
     return {"status": "ok"}
 
-
-
-
-# === Установка webhook при запуске ===
 @app.on_event("startup")
 async def on_startup():
     try:
-        await bot_app.initialize()  # ✅ Обязательно при использовании webhook
+        await bot_app.initialize()
         await bot_app.start()
         await bot_app.bot.set_webhook(WEBHOOK_URL)
         print(f"✅ Webhook установлен: {WEBHOOK_URL}")
     except Exception as e:
         print(f"❌ Не удалось установить webhook: {e}")
-        @app.on_event("startup")
+
 
     
