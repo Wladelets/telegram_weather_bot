@@ -110,6 +110,14 @@ async def get_forecast(lat: float, lon: float) -> str:
         return "Ошибка получения прогноза."
 
 
+# === Обработчики Telegram ===
+async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message is None:
+        return
+    await update.message.reply_text("Привет! Отправь свою локацию 🌍.")
+
+
+
 # === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
@@ -204,6 +212,13 @@ bot_app.add_handler(CommandHandler("forecast", forecast))  # 👈 добавле
 bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_handler(MessageHandler(filters.COMMAND, unknown))
 bot_app.add_error_handler(error_handler)
+
+
+@app.post(f"/webhook/{BOT_TOKEN}")
+async def webhook_handler(update: Dict[str, Any]):
+    telegram_update = Update.de_json(update, bot_app.bot)
+    await bot_app.process_update(telegram_update)
+    return {"status": "ok"}
 
 
 # === Webhook FastAPI endpoint ===
