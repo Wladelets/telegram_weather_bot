@@ -213,7 +213,7 @@ bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 bot_app.add_handler(MessageHandler(filters.COMMAND, unknown))
 bot_app.add_error_handler(error_handler)
 
-
+# === Webhook FastAPI endpoint ===
 @app.post(f"/webhook/{BOT_TOKEN}")
 async def webhook_handler(update: Dict[str, Any]):
     telegram_update = Update.de_json(update, bot_app.bot)
@@ -221,12 +221,6 @@ async def webhook_handler(update: Dict[str, Any]):
     return {"status": "ok"}
 
 
-# === Webhook FastAPI endpoint ===
-@app.post(WEBHOOK_PATH)
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
-    return {"ok": True}
 
 
 # === Установка webhook при запуске ===
