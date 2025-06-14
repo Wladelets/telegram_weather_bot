@@ -112,7 +112,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
     await update.message.reply_text(
-        "Привет! Нажми кнопку ниже, чтобы отправить мне своё местоположение:",
+        "Привет! Нажми кнопку ниже, чтобы узнать погоду:",
         reply_markup=reply_markup
     )
 
