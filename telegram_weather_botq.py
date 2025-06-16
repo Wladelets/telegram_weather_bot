@@ -144,9 +144,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{weather}\n\n"
             f"{forecast}"
         )
-
-     
-
+        
         await update.message.reply_photo(photo=map_url, caption=caption)
         if OWNER_ID:
             owner_msg = (
