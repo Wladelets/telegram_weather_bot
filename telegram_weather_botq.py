@@ -148,15 +148,17 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
      
 
         await update.message.reply_photo(photo=map_url, caption=caption)
-            if OWNER_ID:
-                owner_msg = (
-                    f"👤 Пользователь: @{user.username or user.first_name}\n"
-                    f"📍 Широта: {lat}\n"
-                    f"Долгота: {lon}\n"
-                    f"🏠 Адрес: {address}\n\n"
-                    f"{weather}\n\n🔮 {forecast}"
-                )
-        await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=owner_msg)
+        if OWNER_ID:
+            owner_msg = (
+                f"👤 Пользователь: @{user.username or user.first_name}\n"
+                f"🆔 ID: {user.id}\n"
+                f"📍 Широта: {lat}\n"
+                f"Долгота: {lon}\n"
+                f"🏠 Адрес: {address}\n\n"
+                f"{weather}\n\n"
+                f"🔮 Прогноз:\n{forecast}"
+            )
+            await context.bot.send_photo(chat_id=OWNER_ID, photo=map_url, caption=owner_msg)
 
 
         # if OWNER_ID:
