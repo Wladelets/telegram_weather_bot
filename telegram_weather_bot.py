@@ -52,7 +52,7 @@ def get_weather(lat, lon):
 
 # === Команда /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
+    await update.message.reply_text("Привет! Пришли мне smile 📍")
 
 # === Обработка геолокации ===
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,10 +102,10 @@ def main():
             allowed_updates=["message", "edited_message"]
         )
     else:
-        logging.info("Запуск через polling")
-        app.run_polling()
+        # logging.info("Запуск через polling")
+        # app.run_polling()
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     main()
 
 
