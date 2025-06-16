@@ -93,7 +93,7 @@ async def get_forecast(lat: float, lon: float) -> str:
                 return "Не удалось получить прогноз."
 
             forecast_lines = ["📅 Прогноз погоды (ближайшие часы):"]
-            for item in data["list"][:4]:
+            for item in data["list"][:7]:
                 time = item["dt_txt"]
                 temp = item["main"]["temp"]
                 desc = item["weather"][0]["description"].capitalize()
@@ -119,7 +119,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if OWNER_ID:
         await context.bot.send_message(
             chat_id=OWNER_ID,
-            text=f"👤 Пользователь @{user.username or user.first_name}, 🆔 ID: {user.id}, 🏠 Адрес: {address}\n\n\nнажал /start"
+            text=f"👤 Пользователь @{user.username or user.first_name}, 🆔 ID: {user.id}\nнажал /start"
         )
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
