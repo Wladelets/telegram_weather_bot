@@ -132,9 +132,9 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         address = get_address(lat, lon)
         weather = await get_weather(lat, lon)
             map_url = (
-            f"https://static-maps.yandex.ru/1.x/"
-            f"?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
-        )
+                f"https://static-maps.yandex.ru/1.x/"
+                f"?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
+            )
 
         forecast = await get_forecast(lat, lon)
         
