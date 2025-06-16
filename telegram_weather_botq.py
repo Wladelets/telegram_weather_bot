@@ -131,17 +131,23 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         address = get_address(lat, lon)
         weather = await get_weather(lat, lon)
+         # map_url = (
+            # f"https://static-maps.yandex.ru/1.x/"
+            # f"?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
+        # )
 
-        map_url = (
-            f"https://static-maps.yandex.ru/1.x/"
-            f"?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
-        )
-
+        forecast = await get_forecast(lat, lon)
+        
+        
         caption = (
             f"📍 Широта: {lat}\n"
             f"Долгота: {lon}\n"
-            f"🏠 Адрес: {address}\n\n{weather}"
+            f"🏠 Адрес: {address}\n\n"
+            f"{weather}\n\n"
+            f"{forecast}"
         )
+
+     
 
         await update.message.reply_photo(photo=map_url, caption=caption)
 
