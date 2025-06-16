@@ -119,7 +119,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if OWNER_ID:
         await context.bot.send_message(
             chat_id=OWNER_ID,
-            text=f"👤 Пользователь @{user.username or user.first_name} нажал /start"
+            text=f"👤 Пользователь @{user.username or user.first_name}, 🆔 ID: {user.id}, 🏠 Адрес: {address}\n\n\nнажал /start"
         )
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
