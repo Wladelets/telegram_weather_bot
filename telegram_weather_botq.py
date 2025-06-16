@@ -177,7 +177,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("forecast", forecast))
-bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+bot_app.add_handler(MessageHandler(filters.LOCATION.ALL, handle_location))
 bot_app.add_handler(MessageHandler(filters.COMMAND, unknown))
 bot_app.add_error_handler(error_handler)
 
