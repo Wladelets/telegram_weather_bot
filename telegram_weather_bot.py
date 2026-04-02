@@ -11,18 +11,24 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+from geopy.geocoders import Nominatim   # ← Добавил этот импорт
 
-# === Загрузка .env ===
+# === Загрузка .env (для локального тестирования) ===
 load_dotenv()
 
-BOT_TOKEN = os.getenv("8045976543:AAH0ZIq-MLRiUYFCioNJlPEaFgUYSoe4RQw")
-OWNER_ID = os.getenv("7749916934")
-OPENWEATHER_TOKEN = os.getenv("a6115733a483924112f4edb9f3c83482")
-WEBHOOK_HOST = os.getenv("https://telegram-weather-botq.onrender.com")   # Например: https://telegram-weather-botq.onrender.com
-PORT = int(os.getenv("PORT", 10000))       # Render обычно использует 10000
+# === Правильное получение переменных ===
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OWNER_ID = os.getenv("OWNER_ID")
+OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
 
-if not BOT_TOKEN or not OPENWEATHER_TOKEN:
-    raise ValueError("❌ BOT_TOKEN или OPENWEATHER_TOKEN не установлены!")
+PORT = int(os.getenv("PORT", 10000))
+
+# Проверка обязательных переменных
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN не установлен в Environment Variables!")
+if not OPENWEATHER_TOKEN:
+    raise ValueError("❌ OPENWEATHER_TOKEN не установлен в Environment Variables!")
 
 WEBHOOK_PATH = "/webhook"
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}" if WEBHOOK_HOST else None
@@ -43,7 +49,7 @@ def get_address(lat: float, lon: float) -> str:
         return "Не удалось определить адрес"
 
 
-# === Получить погоду (синхронно) ===
+# === Получить погоду ===
 def get_weather(lat: float, lon: float) -> str:
     try:
         url = (
@@ -140,7 +146,7 @@ def main():
             allowed_updates=["message"]
         )
     else:
-        logging.info("Запуск через polling (для теста)")
+        logging.info("Запуск через polling (для локального теста)")
         application.run_polling()
 
 
