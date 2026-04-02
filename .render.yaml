@@ -10,10 +10,10 @@ services:
     RENDER_EXTERNAL_HOSTNAME=telegram-weather-botq.onrender.com
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        value: "8045976543:AAH6sNn08GPdehljiQYWwud_9pPDUFw2FMw"
+        value: "8045976543:AAH0ZIq-MLRiUYFCioNJlPEaFgUYSoe4RQw "
         sync: false
         key: BOT_TOKEN
-        value: "8045976543:AAH6sNn08GPdehljiQYWwud_9pPDUFw2FMw"
+        value: "8045976543:AAH0ZIq-MLRiUYFCioNJlPEaFgUYSoe4RQw "
         sync: false
         key: OPENWEATHERMAP_API_KEY
         sync: false
