@@ -1,154 +1,241 @@
-import os
 import logging
-import requests
-from dotenv import load_dotenv
+import os
+import asyncio
+import time
+from typing import Dict, Tuple
 
-from telegram import Update
+from fastapi import FastAPI, Request
+from telegram import Update, Bot, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    filters,
     ContextTypes,
+    filters,
 )
-from geopy.geocoders import Nominatim   # ← Добавил этот импорт
+from geopy.geocoders import Nominatim
+from dotenv import load_dotenv
+from httpx import AsyncClient, Timeout, RequestError
 
-# === Загрузка .env (для локального тестирования) ===
+# ====================== CONFIG ======================
 load_dotenv()
 
-# === Правильное получение переменных ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = os.getenv("OWNER_ID")
+OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENWEATHER_TOKEN = os.getenv("OPENWEATHER_TOKEN")
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-PORT = int(os.getenv("PORT", 10000))
+assert BOT_TOKEN, "❌ BOT_TOKEN не установлен!"
+assert OPENWEATHER_TOKEN, "❌ OPENWEATHER_TOKEN не установлен!"
 
-# Проверка обязательных переменных
-if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN не установлен в Environment Variables!")
-if not OPENWEATHER_TOKEN:
-    raise ValueError("❌ OPENWEATHER_TOKEN не установлен в Environment Variables!")
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}" if WEBHOOK_HOST else None
-
+# ====================== LOGGING ======================
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
+logger = logging.getLogger(__name__)
 
-# === Получить адрес ===
+# ====================== APP ======================
+app = FastAPI(title="Weather Bot ULTRA")
+bot = Bot(token=BOT_TOKEN)
+bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+# ====================== SERVICES ======================
+geolocator = Nominatim(user_agent="weather-bot")
+http_client = AsyncClient(timeout=Timeout(10.0))
+
+user_locations: Dict[int, Tuple[float, float]] = {}
+last_request: Dict[int, float] = {}   # Анти-спам
+
+
+def is_spam(user_id: int) -> bool:
+    """Простая защита от спама (2 секунды между запросами)"""
+    now = time.time()
+    if user_id in last_request and now - last_request[user_id] < 2:
+        return True
+    last_request[user_id] = now
+    return False
+
+
+async def safe_request(url: str, params: dict, retries: int = 3):
+    """Улучшенный запрос с умным retry"""
+    for attempt in range(retries):
+        try:
+            response = await http_client.get(url, params=params)
+            
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 429:          # Rate limit
+                await asyncio.sleep(2)
+            elif response.status_code >= 500:          # Серверные ошибки
+                await asyncio.sleep(1 * (attempt + 1))
+            else:
+                logger.warning(f"HTTP {response.status_code}")
+                break
+                
+        except RequestError as e:
+            logger.warning(f"Request error (attempt {attempt+1}): {e}")
+            await asyncio.sleep(1 * (attempt + 1))
+    return None
+
+
+# ====================== CORE FUNCTIONS ======================
 def get_address(lat: float, lon: float) -> str:
     try:
-        geolocator = Nominatim(user_agent="telegram-weather-bot")
         location = geolocator.reverse((lat, lon), language="ru")
         return location.address if location else "Адрес не найден"
     except Exception as e:
-        logging.error(f"Ошибка геокодера: {e}")
-        return "Не удалось определить адрес"
+        logger.error(f"Geocode error: {e}")
+        return "Ошибка определения адреса"
 
 
-# === Получить погоду ===
-def get_weather(lat: float, lon: float) -> str:
-    try:
-        url = (
-            f"https://api.openweathermap.org/data/2.5/weather?"
-            f"lat={lat}&lon={lon}&appid={OPENWEATHER_TOKEN}&units=metric&lang=ru"
+async def get_weather(lat: float, lon: float) -> str:
+    data = await safe_request(
+        "https://api.openweathermap.org/data/2.5/weather",
+        {"lat": lat, "lon": lon, "appid": OPENWEATHER_TOKEN, "units": "metric", "lang": "ru"},
+    )
+    if not data or "main" not in data:
+        return "❌ Не удалось получить погоду"
+    return (
+        f"🌤 {data['weather'][0]['description'].capitalize()}\n"
+        f"🌡 {data['main']['temp']}°C (ощущается {data['main']['feels_like']}°C)\n"
+        f"💧 Влажность: {data['main']['humidity']}%\n"
+        f"💨 Ветер: {data['wind']['speed']} м/с"
+    )
+
+
+async def get_forecast(lat: float, lon: float) -> str:
+    data = await safe_request(
+        "https://api.openweathermap.org/data/2.5/forecast",
+        {"lat": lat, "lon": lon, "appid": OPENWEATHER_TOKEN, "units": "metric", "lang": "ru"},
+    )
+    if not data or "list" not in data:
+        return "❌ Не удалось получить прогноз"
+    lines = ["📅 Прогноз на ближайшие часы:"]
+    for item in data["list"][:7]:
+        lines.append(
+            f"🕓 {item['dt_txt']} — {item['weather'][0]['description'].capitalize()}, "
+            f"🌡 {item['main']['temp']}°C, 💨 {item['wind']['speed']} м/с"
         )
-        r = requests.get(url, timeout=10)
-        data = r.json()
-
-        if r.status_code != 200 or "main" not in data:
-            return "Не удалось получить данные о погоде 😞"
-
-        desc = data["weather"][0]["description"].capitalize()
-        temp = data["main"]["temp"]
-        feels = data["main"]["feels_like"]
-        humidity = data["main"]["humidity"]
-        wind = data["wind"]["speed"]
-
-        return (
-            f"🌡 Температура: {temp}°C\n"
-            f"🤔 Ощущается как: {feels}°C\n"
-            f"💨 Ветер: {wind} м/с\n"
-            f"💧 Влажность: {humidity}%\n"
-            f"☁️ {desc}"
-        )
-    except Exception as e:
-        logging.error(f"Ошибка погоды: {e}")
-        return "Ошибка при получении погоды 😞"
+    return "\n".join(lines)
 
 
-# === Команды ===
+# ====================== HANDLERS ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Пришли мне свою геолокацию 📍")
+    keyboard = [[KeyboardButton("📍 Отправить геолокацию", request_location=True)]]
+    await update.message.reply_text(
+        "Нажми кнопку и получи погоду 👇",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
+    )
+    if OWNER_ID:
+        user = update.message.from_user
+        await context.bot.send_message(
+            chat_id=OWNER_ID,
+            text=f"👤 @{user.username or user.first_name} (ID: {user.id}) запустил бота",
+        )
 
 
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_spam(update.message.from_user.id):
+        await update.message.reply_text("⏳ Подождите пару секунд между запросами")
+        return
+
     try:
         user = update.message.from_user
-        location = update.message.location
-        lat, lon = location.latitude, location.longitude
+        loc = update.message.location
+        lat, lon = loc.latitude, loc.longitude
 
-        address = get_address(lat, lon)
-        weather = get_weather(lat, lon)
+        user_locations[user.id] = (lat, lon)
 
-        map_url = f"https://static-maps.yandex.ru/1.x/?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
-
-        msg = (
-            f"📍 Геолокация:\n"
-            f"Широта: {lat}\nДолгота: {lon}\n\n"
-            f"🏠 Адрес: {address}\n\n"
-            f"{weather}"
+        # Неблокирующий geolocator + параллельные запросы
+        loop = asyncio.get_running_loop()
+        address_task = loop.run_in_executor(None, get_address, lat, lon)
+        
+        weather, forecast, address = await asyncio.gather(
+            get_weather(lat, lon),
+            get_forecast(lat, lon),
+            address_task
         )
 
-        await update.message.reply_photo(photo=map_url, caption=msg)
+        map_url = f"https://static-maps.yandex.ru/1.x/?ll={lon},{lat}&size=450,300&z=14&l=map&pt={lon},{lat},pm2rdm"
+        
+        caption = (
+            f"📍 {address}\n"
+            f"{'─'*25}\n\n"
+            f"{weather}\n\n"
+            f"{'─'*25}\n"
+            f"{forecast}"
+        )
 
-        # Отправка владельцу
+        await update.message.reply_photo(photo=map_url, caption=caption)
+
         if OWNER_ID:
-            try:
-                owner_id = int(OWNER_ID)
-                owner_msg = (
-                    f"👤 @{user.username or user.first_name} прислал геолокацию:\n"
-                    f"🗺 {address}\n"
-                    f"📍 lat={lat}, lon={lon}\n\n"
-                    f"{weather}"
-                )
-                await context.bot.send_photo(chat_id=owner_id, photo=map_url, caption=owner_msg)
-            except ValueError:
-                logging.error("OWNER_ID не является числом")
+            await context.bot.send_photo(
+                chat_id=OWNER_ID,
+                photo=map_url,
+                caption=f"👤 @{user.username or user.first_name}\n📍 {address}\n\n{weather}\n\n{forecast}",
+            )
 
     except Exception as e:
-        logging.error(f"Ошибка в handle_location: {e}")
-        await update.message.reply_text("Произошла ошибка при обработке локации.")
+        logger.error(f"handle_location error: {e}")
+        await update.message.reply_text("Ошибка при обработке локации")
+
+
+async def forecast_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if user_id not in user_locations:
+        await update.message.reply_text("Сначала отправь геолокацию")
+        return
+    lat, lon = user_locations[user_id]
+    forecast_text = await get_forecast(lat, lon)
+    await update.message.reply_text(forecast_text)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    logging.error(f"Ошибка: {context.error}", exc_info=context.error)
+    logger.error(f"Global error: {context.error}")
 
 
-# === Запуск ===
-def main():
-    application = Application.builder().token(BOT_TOKEN).build()
+# ====================== BOT SETUP ======================
+bot_app.add_handler(CommandHandler("start", start))
+bot_app.add_handler(CommandHandler("forecast", forecast_cmd))
+bot_app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+bot_app.add_error_handler(error_handler)
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.LOCATION, handle_location))
-    application.add_error_handler(error_handler)
 
+# ====================== FASTAPI ======================
+@app.get("/")
+async def health():
+    return {"status": "ok"}
+
+
+@app.post(WEBHOOK_PATH)
+async def webhook(req: Request):
+    data = await req.json()
+    update = Update.de_json(data, bot)
+    await bot_app.process_update(update)
+    return {"ok": True}
+
+
+@app.on_event("startup")
+async def startup():
+    await bot_app.initialize()
+    await bot_app.start()
     if WEBHOOK_URL:
-        logging.info(f"Запуск через webhook → {WEBHOOK_URL}")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=WEBHOOK_PATH,
-            webhook_url=WEBHOOK_URL,
-            allowed_updates=["message"]
-        )
+        await bot.set_webhook(WEBHOOK_URL)
+        logger.info(f"✅ Webhook успешно установлен: {WEBHOOK_URL}")
     else:
-        logging.info("Запуск через polling (для локального теста)")
-        application.run_polling()
+        logger.error("❌ WEBHOOK_URL не задан в переменных окружения!")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await http_client.aclose()
+    await bot_app.stop()
+    await bot_app.shutdown()
 
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
