@@ -17,7 +17,7 @@ services:
         value: "7749916934"
         sync: false
       - key: WEBHOOK_URL
-        value: "https://weather-bot-final.onrender.com/webhook/8045976543:AAFJFSH1kCqp_xKBknv-xNrSPIZLQE3Bpzs"
+        value: "https://weather-bot-final.onrender.com/webhook/<токен_бота>"
         sync: false
         key: RENDER_EXTERNAL_HOSTNAME
         sync: false
